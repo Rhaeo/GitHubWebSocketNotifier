@@ -11,6 +11,14 @@ fetch(url, { credentials: "include" })
       .then(function (text) {
         var match = text.match(/wss:\/\/live\.github\.com\/_sockets\/(\w|-)+/);
         if (match.length !== 1) {
+          chrome.notifications.create("GitHubWebSocketNotifier",
+          {
+            type: "basic",
+            iconUrl: "/icon-128.png",
+            title: "GitHub Notifications",
+            message: "Hi!"
+          });
+          
           var webSocket = new WebSocket(match[0]);
 
           webSocket.onopen = function () {
@@ -33,6 +41,15 @@ fetch(url, { credentials: "include" })
                     if (match.length !== 1) {
                       chrome.browserAction.setBadgeText({ text: match[1] === "0" ? "" : match[1] });
                       chrome.browserAction.setTitle({ title: "GitHub Notifications: " + match[1] });
+                      chrome.notifications.update("GitHubWebSocketNotifier",
+                      {
+                        type: "basic",
+                        iconUrl: "/icon-128.png",
+                        title: "GitHub Notifications: " + match[1],
+                        message: "GitHub Notifications",
+                        contextMessage: match[1],
+                        eventTime: new Date().getMilliseconds()
+                      });
                     } else {
                       console.error("Failed to match GitHub.com.", match);
                     }
