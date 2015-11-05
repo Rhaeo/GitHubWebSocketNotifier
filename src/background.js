@@ -18,30 +18,25 @@ function scrapeModel() {
         response
           .text()
           .then(function (text) {
-            var data = {};
-            
-            var webSocketUrlMatch = text.match(/wss:\/\/live\.github\.com\/_sockets\/(\w|-)+/);
-            if (webSocketUrlMatch.length === 2) {
-              data.webSocketUrl = webSocketUrlMatch[0];
-            } else {
-              reject(new Error("Matched " + webSocketUrlMatch.length + "matched when matching the web socket URL. Expected 1."));
-            }
-            
-            var userNameMatch = text.match(/<strong class="css-truncate-target">(TomasHubelbauer)<\/strong>/);
-            if (userNameMatch.length === 2) {
-              data.userName = userNameMatch[1];
-            } else {
-              reject(new Error("Matched " + userNameMatch.length + "matched when matching the user name. Expected 1."));
-            }
-            
-            var unreadNotificationCountMatch = text.match(/<span class="count">(\d+)<\/span>/);
-            if (unreadNotificationCountMatch.length === 2) {
-              data.unreadNotificationCount = unreadNotificationCountMatch[1];
-            } else {
-              reject(new Error("Matched " + unreadNotificationCountMatch.length + "matched when matching the unread notification count. Expected 2."));
-            }
-            
-            resolve(data);
+            var document = new DOMParser().parseFromString(text, "text/html");
+            resolve({
+              webSocketUrl: document.querySelector("link[rel=web-socket]").getAttribute("href"),
+              userName: document.querySelector(".css-truncate-target").textContent,
+              unreadNotificationCount: document.querySelector(".count").textContent,
+              respositories: Array.prototype.map.call(document.querySelectorAll(".notifications-list .boxed-group"), function (node) {
+                return {
+                  name: node.querySelector("h3 a").textContent,
+                  issues: Array.prototype.map.call(node.querySelectorAll("li.js-notification"), function (node) {
+                    var unsubscribeFormNode = node.querySelector(".js-delete-notification");
+                    return {
+                      name: node.querySelector("a").textContent.trim(),
+                      unsubscribePostUrl: unsubscribeFormNode.getAttribute("action"),
+                      unsubscribePostNonce: unsubscribeFormNode.getAttribute("data-form-nonce")
+                    };
+                  })
+                };
+              })
+            });
           })
           .catch(function (error) {
             reject(new Error("Failed to read GitHub.com."));
