@@ -11,15 +11,6 @@ function setBrowserActionBadge(backgroundColor, text, title) {
   chrome.browserAction.setTitle({ title: title || "" });
 }
 
-function createOrUpdateDesktopNotification(title, message, contextMessage) {
-  var id = "GitHubWebSocketNotifier";
-  var options = { type: "basic", iconUrl: "/icon-128.png", title: title, message: message, contextMessage: contextMessage, eventTime: new Date().getMilliseconds() };
-  
-  // TODO: Figure out how to do this right.
-  chrome.notifications.create(id, options);
-  chrome.notifications.update(id, options);
-}
-
 function fetchGitHubNotificationsPageHtml() {
   return new Promise(function (resolve, reject) {
     window.fetch(url, { credentials: "include" })
@@ -60,7 +51,8 @@ function refreshUnreadNotificationCount() {
   matchUnreadNotificationCount()
     .then(function (count) {
       setBrowserActionBadge("#33ff99", count === "0" ? null : count, "GitHub Notifications: " + count);
-      createOrUpdateDesktopNotification("GitHub Notifications: " + count, "GitHub Notifications", count);
+      var title = "GitHub Notifications: ";
+      chrome.notifications.create({ type: "basic", iconUrl: "/icon-128.png", title: title + count, message: title, contextMessage: count, eventTime: new Date().getTime() });
     })
     .catch(function (error) {
       console.error("Failed to match GitHub.com.", error);
@@ -97,7 +89,6 @@ function refreshWebSocket() {
     
       webSocket.onmessage = function (message) {
         console.debug("WebSocket message.", message);
-        createOrUpdateDesktopNotification(null, "?", "GitHub Notifications: Reloading…");
         refreshUnreadNotificationCount();
       };
     
