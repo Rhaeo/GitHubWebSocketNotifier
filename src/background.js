@@ -1,4 +1,5 @@
 var model = null;
+var modelChangeNumber = 0;
 
 chrome.notifications.onClosed.addListener(function (notificationId, byUser) {
 
@@ -33,19 +34,22 @@ chrome.notifications.onButtonClicked.addListener(function (notificationId, butto
 
 document.addEventListener("modelchange", function (event) {
   model = event.detail;
+  modelChangeNumber++;
   setBrowserActionBadge("#33ff99", model.unreadNotificationCount === "0" ? null : model.unreadNotificationCount, "GitHub Notifications: " + model.unreadNotificationCount);
 });
 
 document.addEventListener("issueadded", function (event) {
-  chrome.notifications.create(event.detail.id,
-  {
-    type: "basic",
-    iconUrl: "/icon-128.png",
-    title: event.detail.repositoryName,
-    message: event.detail.name,
-    eventTime: new Date().getTime(),
-    buttons: [{title: "View notification"}, {title: "View all notifications"}]
-  });
+  if (modelChangeNumber > 1) {
+    chrome.notifications.create(event.detail.id,
+    {
+      type: "basic",
+      iconUrl: "/icon-128.png",
+      title: event.detail.repositoryName,
+      message: event.detail.name,
+      eventTime: new Date().getTime(),
+      buttons: [{title: "View notification"}, {title: "View all notifications"}]
+    });
+  }
 });
 
 document.addEventListener("issueremoved", function (event) {
