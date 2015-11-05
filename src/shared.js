@@ -36,27 +36,31 @@ function scrapeModel() {
               userName: document.querySelector(".css-truncate-target").textContent,
               unreadNotificationCount: document.querySelector(".count").textContent,
               repositories: Array.prototype.map.call(document.querySelectorAll(".notifications-list .boxed-group"), function (node) {
-                var repositoryName = node.querySelector("h3 a").textContent;
+                var repositoryANode = node.querySelector("h3 a");
+                var repositoryName = repositoryANode.textContent;
+                var repositoryUrl = repositoryANode.getAttribute("href");
                 return {
                   name: repositoryName,
+                  url: repositoryUrl,
                   issues: Array.prototype.map.call(node.querySelectorAll("li.js-notification"), function (node) {
-                    var aNode = node.querySelector(".js-notification-target");
-                    var issueName = aNode.textContent.trim();
-                    var url = aNode.getAttribute("href");
+                    var issueANode = node.querySelector(".js-notification-target");
+                    var issueName = issueANode.textContent.trim();
+                    var url = issueANode.getAttribute("href");
                     var id = url.substr(url.lastIndexOf("/") + 1);
                     var deleteFormNode = node.querySelector(".js-delete-notification");
-                    var deletePostUrl = deleteFormNode.getAttribute("action");
+                    var submit = event => deleteFormNode.submit();
+                    var deletePostUrl = "https://github.com" + deleteFormNode.getAttribute("action");
                     var deletePostNonce = deleteFormNode.getAttribute("data-form-nonce");
                     var deletePostToken = deleteFormNode.querySelector("input[name=authenticity_token]").getAttribute("value");
                     var muteFormNode = node.querySelector(".js-mute-notification");
-                    var mutePostUrl = muteFormNode.getAttribute("action");
+                    var mutePostUrl = "https://github.com" + muteFormNode.getAttribute("action");
                     var mutePostNonce = muteFormNode.getAttribute("data-form-nonce");
                     var mutePostToken = muteFormNode.querySelector("input[name=authenticity_token]").getAttribute("value");
                     var unmuteFormNode = node.querySelector(".js-unmute-notification");
-                    var unmutePostUrl = unmuteFormNode.getAttribute("action");
+                    var unmutePostUrl = "https://github.com" + unmuteFormNode.getAttribute("action");
                     var unmutePostNonce = unmuteFormNode.getAttribute("data-form-nonce");
                     var unmutePostToken = unmuteFormNode.querySelector("input[name=authenticity_token]").getAttribute("value");
-                    return { repositoryName, name: issueName, url, id, deletePostUrl, deletePostNonce, deletePostToken, mutePostUrl, mutePostNonce, mutePostToken, unmutePostUrl, unmutePostNonce, unmutePostToken };
+                    return { repositoryName, name: issueName, url, id, submit, deletePostUrl, deletePostNonce, deletePostToken, mutePostUrl, mutePostNonce, mutePostToken, unmutePostUrl, unmutePostNonce, unmutePostToken };
                   })
                 };
               })

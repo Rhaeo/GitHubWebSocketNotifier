@@ -1,4 +1,40 @@
 body {
-  height: 500px;
-  width: 500px;
+  margin: 0;
+}
+
+.popupHeading {
+  color: #222;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.repositoryHeading {
+  color: #666;
+  font-size: 150%;
+  line-height: 200%;
+  text-decoration: none;
+}
+
+.issueHeading {
+  border-bottom: 1px solid #dedede;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issueHeading a {
+  cursor: pointer;
+  display: inline-block;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  width: 24px;
+}
+
+.issueHeading a:hover {
+  background: #dedede;
+}
+
+.issueHeading span {
+  padding-left: 1em;
 }

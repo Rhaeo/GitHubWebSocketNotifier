@@ -16,6 +16,8 @@
   },
   "permissions": [
     "notifications",
+    "webRequest",
+    "webRequestBlocking",
     "https://github.com/notifications"
   ]
 }
