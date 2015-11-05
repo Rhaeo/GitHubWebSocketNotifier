@@ -11,14 +11,37 @@ function setBrowserActionBadge(backgroundColor, text, title) {
   chrome.browserAction.setTitle({ title: title || "" });
 }
 
-function fetchGitHubNotificationsPageHtml() {
+function scrapeModel() {
   return new Promise(function (resolve, reject) {
     window.fetch(url, { credentials: "include" })
       .then(function (response) {
         response
           .text()
           .then(function (text) {
-            resolve(text);
+            var data = {};
+            
+            var webSocketUrlMatch = text.match(/wss:\/\/live\.github\.com\/_sockets\/(\w|-)+/);
+            if (webSocketUrlMatch.length === 2) {
+              data.webSocketUrl = webSocketUrlMatch[0];
+            } else {
+              reject(new Error("Matched " + webSocketUrlMatch.length + "matched when matching the web socket URL. Expected 1."));
+            }
+            
+            var userNameMatch = text.match(/<strong class="css-truncate-target">(TomasHubelbauer)<\/strong>/);
+            if (userNameMatch.length === 2) {
+              data.userName = userNameMatch[1];
+            } else {
+              reject(new Error("Matched " + userNameMatch.length + "matched when matching the user name. Expected 1."));
+            }
+            
+            var unreadNotificationCountMatch = text.match(/<span class="count">(\d+)<\/span>/);
+            if (unreadNotificationCountMatch.length === 2) {
+              data.unreadNotificationCount = unreadNotificationCountMatch[1];
+            } else {
+              reject(new Error("Matched " + unreadNotificationCountMatch.length + "matched when matching the unread notification count. Expected 2."));
+            }
+            
+            resolve(data);
           })
           .catch(function (error) {
             reject(new Error("Failed to read GitHub.com."));
@@ -30,26 +53,10 @@ function fetchGitHubNotificationsPageHtml() {
   });
 }
 
-function matchUnreadNotificationCount() {
-  return new Promise(function (resolve, reject) {
-    fetchGitHubNotificationsPageHtml()
-      .then(function (text) {
-        var match = text.match(/<span class="count">(\d+)<\/span>/);
-        if (match.length === 2) {
-          resolve(match[1]);
-        } else {
-          reject(new Error("Matched " + match.length + "matched. Expected 2."));
-        }
-      })
-      .catch(function (error) {
-        reject(error);
-      });
-  });
-}
-
 function refreshUnreadNotificationCount() {
-  matchUnreadNotificationCount()
-    .then(function (count) {
+  scrapeModel()
+    .then(function (model) {
+      var count = model.unreadNotificationCount;
       setBrowserActionBadge("#33ff99", count === "0" ? null : count, "GitHub Notifications: " + count);
       var title = "GitHub Notifications: ";
       chrome.notifications.create({ type: "basic", iconUrl: "/icon-128.png", title: title + count, message: title, contextMessage: count, eventTime: new Date().getTime() });
@@ -59,31 +66,14 @@ function refreshUnreadNotificationCount() {
     });
 }
 
-function matchWebSocketUrl() {
-  return new Promise(function (resolve, reject) {
-    fetchGitHubNotificationsPageHtml()
-      .then(function (text) {
-        var match = text.match(/wss:\/\/live\.github\.com\/_sockets\/(\w|-)+/);
-        if (match.length === 2) {
-          resolve(match[0]);
-        } else {
-          reject(new Error("Matched " + match.length + "matched. Expected 1."));
-        }
-      })
-      .catch(function (error) {
-        reject(error);
-      });
-  });
-}
-
 function refreshWebSocket() {
-  matchWebSocketUrl()
-    .then(function (webSocketUrl) {
-      var webSocket = new WebSocket(webSocketUrl);
+  scrapeModel()
+    .then(function (model) {
+      var webSocket = new WebSocket(model.webSocketUrl);
       
       webSocket.onopen = function () {
         console.debug("WebSocket open.");
-        webSocket.send("subscribe:notification-changed:TomasHubelbauer");
+        webSocket.send("subscribe:notification-changed:" + model.userName);
         refreshUnreadNotificationCount();
       };
     
