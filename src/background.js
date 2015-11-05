@@ -1,86 +1,118 @@
-var url = "https://github.com/notifications";
-
 chrome.browserAction.onClicked.addListener(function() {
   window.open(url);
 });
 
-fetch(url, { credentials: "include" })
-  .then(function (response) {
-    response
-      .text()
-      .then(function (text) {
-        var match = text.match(/wss:\/\/live\.github\.com\/_sockets\/(\w|-)+/);
-        if (match.length !== 1) {
-          chrome.notifications.create("GitHubWebSocketNotifier",
-          {
-            type: "basic",
-            iconUrl: "/icon-128.png",
-            title: "GitHub Notifications",
-            message: "Hi!"
+var url = "https://github.com/notifications";
+
+// TODO: Consider merging this method with the one that takes care of desktop notifications if their purposes align enough.
+function setBrowserActionBadge(backgroundColor, text, title) {
+  chrome.browserAction.setBadgeBackgroundColor({ color: backgroundColor || "none" });
+  chrome.browserAction.setBadgeText({ text: text || "" });
+  chrome.browserAction.setTitle({ title: title || "" });
+}
+
+function createOrUpdateDesktopNotification(title, message, contextMessage) {
+  var id = "GitHubWebSocketNotifier";
+  var options = { type: "basic", iconUrl: "/icon-128.png", title: title, message: message, contextMessage: contextMessage, eventTime: new Date().getMilliseconds() };
+  
+  // TODO: Figure out how to do this right.
+  chrome.notifications.create(id, options);
+  chrome.notifications.update(id, options);
+}
+
+function fetchGitHubNotificationsPageHtml() {
+  return new Promise(function (resolve, reject) {
+    window.fetch(url, { credentials: "include" })
+      .then(function (response) {
+        response
+          .text()
+          .then(function (text) {
+            resolve(text);
+          })
+          .catch(function (error) {
+            reject(new Error("Failed to read GitHub.com."));
           });
-          
-          var webSocket = new WebSocket(match[0]);
+      })
+      .catch(function (error) {
+        reject(new Error("Failed to fetch GitHub.com."));
+      });
+  });
+}
 
-          webSocket.onopen = function () {
-            console.debug("WebSocket open.");
-            webSocket.send("subscribe:notification-changed:TomasHubelbauer");
-            webSocket.onmessage(null);
-          };
-
-          webSocket.onmessage = function (message) {
-            console.debug("WebSocket message.", message);
-            chrome.browserAction.setBadgeBackgroundColor({ color: "#3399ff" });
-            chrome.browserAction.setBadgeText({ text: "?" });
-            chrome.browserAction.setTitle({ title: "GitHub Notifications: Reloading…" });
-            fetch (url, { credentials: "include" })
-              .then(function (response) {
-                response
-                  .text()
-                  .then(function (text) {
-                    var match = text.match(/<span class="count">(\d+)<\/span>/);
-                    if (match.length !== 1) {
-                      chrome.browserAction.setBadgeText({ text: match[1] === "0" ? "" : match[1] });
-                      chrome.browserAction.setTitle({ title: "GitHub Notifications: " + match[1] });
-                      chrome.notifications.update("GitHubWebSocketNotifier",
-                      {
-                        type: "basic",
-                        iconUrl: "/icon-128.png",
-                        title: "GitHub Notifications: " + match[1],
-                        message: "GitHub Notifications",
-                        contextMessage: match[1],
-                        eventTime: new Date().getMilliseconds()
-                      });
-                    } else {
-                      console.error("Failed to match GitHub.com.", match);
-                    }
-                  })
-                  .catch(function (error) {
-                    console.error("Failed to load GitHub.com.", error);
-                  });
-              })
-              .catch(function (error) {
-                console.error("Failed to fetch GitHub.com.", error);
-              });
-          };
-
-          webSocket.onerror = function (error) {
-            console.error("WebSocket error.", error);
-            chrome.browserAction.setBadgeBackgroundColor({ color: "#99ff33" });
-            chrome.browserAction.setBadgeText({ text: "!" });
-            chrome.browserAction.setTitle({ title: error });
-          };
-
-          webSocket.onclose = function () {
-            console.debug("WebSocket close.");
-          };
+function matchUnreadNotificationCount() {
+  return new Promise(function (resolve, reject) {
+    fetchGitHubNotificationsPageHtml()
+      .then(function (text) {
+        var match = text.match(/<span class="count">(\d+)<\/span>/);
+        if (match.length === 2) {
+          resolve(match[1]);
         } else {
-          console.error("Failed to match GitHub.com.", match);
+          reject(new Error("Matched " + match.length + "matched. Expected 2."));
         }
       })
       .catch(function (error) {
-        console.error("Failed to load GitHub.com.", error);
-      });    
-  })
-  .catch(function (error) {
-    console.error("Failed to fetch GitHub.com.", error);
+        reject(error);
+      });
   });
+}
+
+function refreshUnreadNotificationCount() {
+  matchUnreadNotificationCount()
+    .then(function (count) {
+      setBrowserActionBadge("#33ff99", count === "0" ? null : count, "GitHub Notifications: " + count);
+      createOrUpdateDesktopNotification("GitHub Notifications: " + count, "GitHub Notifications", count);
+    })
+    .catch(function (error) {
+      console.error("Failed to match GitHub.com.", error);
+    });
+}
+
+function matchWebSocketUrl() {
+  return new Promise(function (resolve, reject) {
+    fetchGitHubNotificationsPageHtml()
+      .then(function (text) {
+        var match = text.match(/wss:\/\/live\.github\.com\/_sockets\/(\w|-)+/);
+        if (match.length === 2) {
+          resolve(match[0]);
+        } else {
+          reject(new Error("Matched " + match.length + "matched. Expected 1."));
+        }
+      })
+      .catch(function (error) {
+        reject(error);
+      });
+  });
+}
+
+function refreshWebSocket() {
+  matchWebSocketUrl()
+    .then(function (webSocketUrl) {
+      var webSocket = new WebSocket(webSocketUrl);
+      
+      webSocket.onopen = function () {
+        console.debug("WebSocket open.");
+        webSocket.send("subscribe:notification-changed:TomasHubelbauer");
+        refreshUnreadNotificationCount();
+      };
+    
+      webSocket.onmessage = function (message) {
+        console.debug("WebSocket message.", message);
+        createOrUpdateDesktopNotification(null, "?", "GitHub Notifications: Reloading…");
+        refreshUnreadNotificationCount();
+      };
+    
+      webSocket.onerror = function (error) {
+        console.error("WebSocket error.", error);
+        setBrowserActionBadge("#99ff33", "!", error.toString());
+      };
+    
+      webSocket.onclose = function () {
+        console.debug("WebSocket close.");
+      };
+    })
+    .catch(function (error) {
+      console.error("Failed to match GitHub.com.", error);
+    });
+}
+
+refreshWebSocket();
