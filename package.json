@@ -1,0 +1,25 @@
+{
+  "name": "githubwebsocketnotifier",
+  "version": "1.0.0",
+  "description": "Listens to GitHub notifications WebSocket and downloads the notification count.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rhaeo/GitHubWebSocketNotifier.git"
+  },
+  "keywords": [
+    "github",
+    "notifier"
+  ],
+  "author": "https://github.com/TomasHubelbauer",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Rhaeo/GitHubWebSocketNotifier/issues"
+  },
+  "homepage": "https://github.com/Rhaeo/GitHubWebSocketNotifier#readme",
+  "dependencies": {
+    "react": "^0.14.2"
+  }
+}
