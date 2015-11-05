@@ -88,7 +88,7 @@ function refreshWebSocket() {
       };
     
       webSocket.onmessage = function (message) {
-        console.debug("WebSocket message.", message);
+        console.debug("WebSocket message.", message.data);
         refreshUnreadNotificationCount();
       };
     
