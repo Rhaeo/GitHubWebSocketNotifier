@@ -24,39 +24,39 @@ function dispatchDiffs(model) {
 }
 
 function scrapeModel() {
-  return new Promise(function (resolve, reject) {
+  return new Promise((resolve, reject) => {
     window.fetch("https://github.com/notifications", { credentials: "include" })
-      .then(function (response) {
+      .then(response => {
         response
           .text()
-          .then(function (text) {
+          .then(text => {
             var document = new DOMParser().parseFromString(text, "text/html");
             resolve({
               webSocketUrl: document.querySelector("link[rel=web-socket]").getAttribute("href"),
               userName: document.querySelector(".css-truncate-target").textContent,
               unreadNotificationCount: document.querySelector(".count").textContent,
-              repositories: Array.prototype.map.call(document.querySelectorAll(".notifications-list .boxed-group"), function (node) {
-                var repositoryANode = node.querySelector("h3 a");
+              repositories: Array.prototype.map.call(document.querySelectorAll(".notifications-list .boxed-group"), repositoryNode => {
+                var repositoryANode = repositoryNode.querySelector("h3 a");
                 var repositoryName = repositoryANode.textContent;
                 var repositoryUrl = repositoryANode.getAttribute("href");
                 return {
                   name: repositoryName,
                   url: repositoryUrl,
-                  issues: Array.prototype.map.call(node.querySelectorAll("li.js-notification"), function (node) {
-                    var issueANode = node.querySelector(".js-notification-target");
+                  issues: Array.prototype.map.call(repositoryNode.querySelectorAll("li.js-notification"), issueNode => {
+                    var issueANode = issueNode.querySelector(".js-notification-target");
                     var issueName = issueANode.textContent.trim();
                     var url = issueANode.getAttribute("href");
                     var id = url.substr(url.lastIndexOf("/") + 1);
-                    var deleteFormNode = node.querySelector(".js-delete-notification");
+                    var deleteFormNode = issueNode.querySelector(".js-delete-notification");
                     var submit = event => deleteFormNode.submit();
                     var deletePostUrl = "https://github.com" + deleteFormNode.getAttribute("action");
                     var deletePostNonce = deleteFormNode.getAttribute("data-form-nonce");
                     var deletePostToken = deleteFormNode.querySelector("input[name=authenticity_token]").getAttribute("value");
-                    var muteFormNode = node.querySelector(".js-mute-notification");
+                    var muteFormNode = issueNode.querySelector(".js-mute-notification");
                     var mutePostUrl = "https://github.com" + muteFormNode.getAttribute("action");
                     var mutePostNonce = muteFormNode.getAttribute("data-form-nonce");
                     var mutePostToken = muteFormNode.querySelector("input[name=authenticity_token]").getAttribute("value");
-                    var unmuteFormNode = node.querySelector(".js-unmute-notification");
+                    var unmuteFormNode = issueNode.querySelector(".js-unmute-notification");
                     var unmutePostUrl = "https://github.com" + unmuteFormNode.getAttribute("action");
                     var unmutePostNonce = unmuteFormNode.getAttribute("data-form-nonce");
                     var unmutePostToken = unmuteFormNode.querySelector("input[name=authenticity_token]").getAttribute("value");
@@ -66,11 +66,11 @@ function scrapeModel() {
               })
             });
           })
-          .catch(function (error) {
+          .catch(error => {
             reject(new Error("Failed to read GitHub.com."));
           });
       })
-      .catch(function (error) {
+      .catch(error => {
         reject(new Error("Failed to fetch GitHub.com."));
       });
   });
@@ -78,11 +78,11 @@ function scrapeModel() {
 
 function dispatchModel() {
   scrapeModel()
-    .then(function (model) {
+    .then(model => {
       document.dispatchEvent(new CustomEvent("modelchange", { detail: model }));
       dispatchDiffs(model);
     })
-    .catch(function (error) {
+    .catch(error => {
       console.error("Everything went awry.", error);
     });
 }
@@ -95,16 +95,16 @@ function setBrowserActionBadge(backgroundColor, text, title) {
 
 (function refreshWebSocket() {
   scrapeModel()
-    .then(function (model) {
+    .then(model => {
       var webSocket = new WebSocket(model.webSocketUrl);
       
-      webSocket.onopen = function () {
+      webSocket.onopen = () => {
         console.debug("WebSocket open.");
         webSocket.send("subscribe:notification-changed:" + model.userName);
         dispatchModel();
       };
 
-      webSocket.onmessage = function (message) {
+      webSocket.onmessage = message => {
         console.debug("WebSocket message.", message.data);
         var data = JSON.parse(message.data);
         switch (data[0]) {
@@ -113,17 +113,17 @@ function setBrowserActionBadge(backgroundColor, text, title) {
         }
       };
 
-      webSocket.onerror = function (error) {
+      webSocket.onerror = error => {
         console.error("WebSocket error.", error);
         setBrowserActionBadge("#99ff33", "!", error.toString());
         // TODO: Refresh by calling `refreshWebSocket` as per #6.
       };
 
-      webSocket.onclose = function () {
+      webSocket.onclose = () => {
         console.debug("WebSocket close.");
       };
     })
-    .catch(function (error) {
+    .catch(error => {
       console.error("Failed to match GitHub.com.", error);
     });
 }());
